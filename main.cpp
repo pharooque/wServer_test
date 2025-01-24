@@ -146,31 +146,54 @@ private:
         std::vector<char> buffer(BUFFER_SIZE);
         while (true)
         {
-            int byteReceived = recv(clientSocket.getSocket(), buffer.data(), static_cast<int>(buffer.size()), 0);
-            if (byteReceived == SOCKET_ERROR)
+            // Receive data
+            int bytesReceived = recv(clientSocket.getSocket(), buffer.data(), static_cast<int>(buffer.size()), 0);
+            if (bytesReceived == SOCKET_ERROR)
             {
-                std::cerr << "Failed to recieve data: " << WSAGetLastError() << "\n";
+                std::cerr << "Failed to receive data: " << WSAGetLastError() << "\n";
                 break;
             }
 
-            if (byteReceived == 0)
+            if (bytesReceived == 0) // Client disconnected
             {
-                std::cerr << "Client disconnected\n";
+                std::cout << "Client disconnected\n";
                 break;
             }
-            
-            std::string message(buffer.data(), byteReceived);
-            std::cout << "Received (" << byteReceived << " bytes): " << message << "\n";
 
-            // Echo back to client
-            if (send(clientSocket.getSocket(), buffer.data(), byteReceived, 0) == SOCKET_ERROR)
+            // Process message
+            std::string message(buffer.data(), bytesReceived);
+            std::cout << "Received: " << message << "\n";
+
+            // Construct server response
+            std::string response;
+            if (message == "hello")
+            {
+                response = "Hello from the server!";
+            }
+            else if (message == "time")
+            {
+                time_t now = time(nullptr);
+                response = "Server time: " + std::string(ctime(&now));
+            }
+            else if (message == "exit")
+            {
+                response = "Goodbye!";
+                send(clientSocket.getSocket(), response.c_str(), static_cast<int>(response.size()), 0);
+                break; // End connection
+            }
+            else
+            {
+                response = "You said: " + message;
+            }
+
+            // Send response
+            if (send(clientSocket.getSocket(), response.c_str(), static_cast<int>(response.size()), 0) == SOCKET_ERROR)
             {
                 std::cerr << "Failed to send response: " << WSAGetLastError() << "\n";
                 break;
             }
         }
     }
-
 public:
     TCPServer(const char* ip = DEFAULT_IP.data(), int port = DEFAULT_PORT)
             : serverIP(ip), serverPort(port)
